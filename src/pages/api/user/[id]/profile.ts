@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { connectToDB } from "../../../util/mongodb";
+import { connectToDB } from "../../../../util/mongodb";
 
 interface ResponseData {
     status: number

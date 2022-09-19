@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { verifyDb } from "../../../util/verifyDb";
-import { connectToDB } from "../../../util/mongodb";
-import validatePaginateQuery from "../../../util/validatePaginateQuery";
+import { verifyDb } from "../../../../util/verifyDb";
+import { connectToDB } from "../../../../util/mongodb";
+import validatePaginateQuery from "../../../../util/validatePaginateQuery";
 
 interface ResponseData {
     status: number
@@ -25,7 +25,7 @@ export default async function handler(
 
         const { client } = await connectToDB();
         if (typeof id === "string") {
-            dbExists = await verifyDb(client, id);
+            dbExists = await verifyDb(id);
             const collection = client.db(id).collection<Character>("characters");
             const find = name ? { name } : {};
             characters = await collection

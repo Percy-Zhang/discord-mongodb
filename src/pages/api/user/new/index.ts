@@ -17,19 +17,20 @@ export default async function handler(
 
         const { client } = await connectToDB();
         const { id } = req.body;
-        const userAlreadyExists = await verifyDb(client, id);
+        const userAlreadyExists = await verifyDb(id);
         const profile = {
             id,
             name: "User",
             uid: "123456789",
             coins: 0,
             guarantee: { four: false, five: false },
-            pity: { four: 0, five: 0 },
-        };
+            pity: { four: 1, five: 1 },
+            adventure: { type: null, start: null },
+        } as UserProfile;
         let acknowledged = false;
 
         if (userAlreadyExists === false) {
-            const collection = client.db("db").collection("users");
+            const collection = client.db("db").collection<UserProfile>("users");
             const userDb = client.db(id);
             acknowledged = (await collection.insertOne(profile)).acknowledged;
             if (acknowledged) {
@@ -41,7 +42,7 @@ export default async function handler(
         }
 
         if (userAlreadyExists){
-            res.status(404).json({ status: 404, message: "User already exists" });
+            res.status(300).json({ status: 300, message: "User already exists" });
         } else if (acknowledged) {
             res.status(200).json({ status: 200, message: "User successfully created" });
         } else {

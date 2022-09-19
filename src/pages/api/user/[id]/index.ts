@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
-import { connectToDB } from "../../../util/mongodb";
-import { verifyDb } from "../../../util/verifyDb";
+import { connectToDB } from "../../../../util/mongodb";
+import { verifyDb } from "../../../../util/verifyDb";
 
 interface ResponseData {
     status: number
@@ -17,7 +17,7 @@ export default async function handler(
         const { client } = await connectToDB();
         let { id = "" } = req.query;
         id = Array.isArray(id) ? id[0] : id;
-        const userAlreadyExists = await verifyDb(client, id);
+        const userAlreadyExists = await verifyDb(id);
 
         if (userAlreadyExists){
             res.status(200).json({ status: 200, message: "User exists", data: true });

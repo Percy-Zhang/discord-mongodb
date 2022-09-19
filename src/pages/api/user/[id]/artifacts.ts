@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { verifyDb } from "../../../util/verifyDb";
-import { connectToDB } from "../../../util/mongodb";
-import validatePaginateQuery from "../../../util/validatePaginateQuery";
+import { verifyDb } from "../../../../util/verifyDb";
+import { connectToDB } from "../../../../util/mongodb";
+import validatePaginateQuery from "../../../../util/validatePaginateQuery";
 
 interface ResponseData {
     status: number
@@ -9,40 +9,43 @@ interface ResponseData {
     data: Response
 }
 
-type Response = null | Weapon[]
+type Response = null | Artifact[]
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse<ResponseData>
 ) {
     if (req.method === "GET") {
-        const { id, name, rarity, type, page = "1", paginate = "10" } = req.query;
-        let weapons : Response = [];
+        const { page = "1", paginate = "10" } = req.query;
+        const id = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
+        const set = Array.isArray(req.query.set) ? req.query.set[0] : req.query.set;
+        const type = Array.isArray(req.query.type) ? req.query.type[0] : req.query.type;
+
+        let artifacts : Response = [];
         let dbExists = true;
 
         const validPaginate = typeof paginate === "string" ? paginate : "10";
         let skip = validatePaginateQuery(page, paginate);
 
         const { client } = await connectToDB();
-        if (typeof id === "string") {
-            dbExists = await verifyDb(client, id);
-            const collection = client.db(id).collection<Weapon>("weapons");
+        if (id !== undefined) {
+            dbExists = await verifyDb(id);
+            const collection = client.db(id).collection<Artifact>("artifacts");
             const find = {} as any;
-            if (typeof name === "string") find.name = name;
-            if (typeof rarity === "string") find.rarity = parseInt(rarity);
-            if (typeof type === "string") find.type = type;
-            weapons = await collection
+            if (set !== undefined) find.set = set;
+            if (type !== undefined) find.type = type;
+            artifacts = await collection
                 .find(find)
-                .sort({ level: -1, refinement: -1 , type: 1, name: 1 })
+                .sort({ set: 1, type: 1, level: -1 })
                 .skip(skip)
                 .limit(parseInt(validPaginate, 10))
                 .toArray();
         }
-        
+
         if (dbExists === false){
             res.status(404).json({ status: 404, message: "User does not exist", data: null });
-        } else if (weapons !== null) {
-            res.status(200).json({ status: 200, message: "Success", data: weapons });
+        } else if (artifacts !== null) {
+            res.status(200).json({ status: 200, message: "Success", data: artifacts });
         } else {
             res.status(500).json({ status: 500, message: "Internal server error", data: null });
         }
