@@ -1,3 +1,4 @@
+import { ObjectId } from "mongodb";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { utils } from "../../../../util";
 
@@ -13,7 +14,7 @@ interface Data {
     pity: number
 }
 
-const WISH_COST = 160
+const WISH_COST = 160;
 
 export default async function handler(
     req: NextApiRequest,
@@ -41,9 +42,7 @@ export default async function handler(
         ]);
 
         const bannerExists = banner !== null;
-
         const data = [];
-
         if (userExists && bannerExists) {
             if ((profile?.coins ?? 0) < WISH_COST * amount) {
                 return res.status(500).json({ status: 500, message: "Not enough coins", data: null  });
@@ -152,6 +151,7 @@ const addCharacterFromWish = async (id: string, newChar: CharArchive) => {
     const existingChar = await charCollection.findOne({ name: newChar.name });
     if (existingChar === null) {
         await charCollection.insertOne({
+            _id: new ObjectId(),
             name: newChar.name,
             level: 1,
             weapon: null,
@@ -166,7 +166,7 @@ const addCharacterFromWish = async (id: string, newChar: CharArchive) => {
             talent3: 1,
             rarity: newChar.rarity,
             type: newChar.type,
-        } as Character);
+        });
     } else if (existingChar.constellations < 6) {
         await charCollection.updateOne({ name: newChar.name }, { $inc: { constellations: 1 } } );
     }
@@ -177,6 +177,7 @@ const addWeaponFromWish = async (id: string, newWeap: WeapArchive) => {
     const uuid = await utils.generateUUID();
     const weapCollection = client.db(id).collection<Weapon>("weapons");
     await weapCollection.insertOne({
+        _id: new ObjectId(),
         id: uuid,
         level: 1,
         refinement: 1,
@@ -184,7 +185,7 @@ const addWeaponFromWish = async (id: string, newWeap: WeapArchive) => {
         name: newWeap.name,
         rarity: newWeap.rarity,
         type: newWeap.type,
-    } as Weapon);
+    });
 };
 
 const saveToWishHistory = async (id: string, prize: CharArchive | WeapArchive, banner: number, pity: number, ) => {
