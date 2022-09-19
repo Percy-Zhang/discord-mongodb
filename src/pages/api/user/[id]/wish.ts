@@ -13,6 +13,8 @@ interface Data {
     pity: number
 }
 
+const WISH_COST = 160
+
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse<ResponseData>
@@ -21,31 +23,31 @@ export default async function handler(
         if(utils.validateToken(req, res) === false) return;
         let { id = "" } = req.query;
         const bannerId = parseInt(req.body.banner);
-        const uncheckedAmount = parseInt(req.body.amount);
-        const amount = isNaN(uncheckedAmount) ? 1 : uncheckedAmount;
+        const amount = parseInt(req.body.amount);
         id = Array.isArray(id) ? id[0] : id;
+
+        if (amount < 1 || amount > 10 || isNaN(amount)) return res.status(400).json({ status: 400, message: "Amount must be between 1 and 10", data: null  });
         
         const { client } = await utils.connectToDB();
-        const userExistsPromise = utils.verifyDb(id);
-        const bannerPromise = utils.verifyBanner(client, bannerId);
         const archive = client.db("archive");
-        const charArchivePromise = archive.collection<CharArchive>("characters").find().toArray();
-        const weapArchivePromise = archive.collection<WeapArchive>("weapons").find().toArray();
         const users = client.db("db").collection<UserProfile>("users");
-        const profilePromise = users.findOne({ id });
 
         const [userExists, banner, charArchive, weapArchive, profile] = await Promise.all([
-            userExistsPromise,
-            bannerPromise,
-            charArchivePromise,
-            weapArchivePromise,
-            profilePromise,
+            utils.verifyDb(id),
+            utils.verifyBanner(client, bannerId),
+            archive.collection<CharArchive>("characters").find().toArray(),
+            archive.collection<WeapArchive>("weapons").find().toArray(),
+            users.findOne({ id }),
         ]);
 
         const bannerExists = banner !== null;
 
         const data = [];
+
         if (userExists && bannerExists) {
+            if ((profile?.coins ?? 0) < WISH_COST * amount) {
+                return res.status(500).json({ status: 500, message: "Not enough coins", data: null  });
+            }
             for (let i = 0; i < amount; i++) {
                 if (profile !== null) {
                     const { rarity, pity } = await calcNextRarity(profile);
@@ -63,11 +65,6 @@ export default async function handler(
                     if (prize === undefined) {
                         return res.status(500).json({ status: 500, message: "No suitable candidate", data: null  });
                     }
-                    if (rarity > 3) {
-                        console.log(limited);
-                        console.log(prize.name);
-                        console.log("\n");
-                    }
 
                     if ("sex" in prize && "height" in prize) 
                         await addCharacterFromWish(id, prize);
@@ -78,6 +75,7 @@ export default async function handler(
                     data.push({ name: prize.name, rarity: prize.rarity, pity });
                 }
             }
+            await users.updateOne({ id }, { $inc: { coins: -(WISH_COST * amount) } });
         }
 
         if (!userExists) {
