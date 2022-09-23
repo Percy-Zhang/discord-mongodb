@@ -27,7 +27,7 @@ export default async function handler(
         const userExists = await utils.verifyDb(id);
         if (userExists) {
             const users = client.db("db").collection<UserProfile>("users");
-            const user = await users.findOneAndUpdate({ id }, { $set: { adventure: { type: null, start: null } }, $inc: { coins: addAmount } });
+            const user = await users.findOneAndUpdate({ id }, { $inc: { coins: addAmount } });
             res.status(200).json({ status: 200, message: "Success", data: { old: user.value?.coins, new: (user.value?.coins ?? 0) + addAmount } });
         } else {
             res.status(500).json({ status: 500, message: "Internal Server Error" });
