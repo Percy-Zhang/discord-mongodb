@@ -9,9 +9,8 @@ interface ResponseData {
     data?: any
 }
 
-// const THRESHOLD = 1000 * 60 * 60 * 5; // five hours
-const THRESHOLD = 1000; // five hours
-const REWARD = 18; // 18 * 90 = 1620
+const THRESHOLD = 1000 * 60 * 60 * 5; // five hours
+const REWARD = 20; // 18 * 90 = 1620
 
 export default async function handler(
     req: NextApiRequest,
@@ -38,34 +37,52 @@ export default async function handler(
             const users = client.db("db").collection<UserProfile>("users");
             const profile = await users.findOne({ id });
             if (profile === null) return res.status(500).json({ status: 500, message: "Interval server error" });
-            
+            const isOnAdv = profile.adventure.start !== null;
+
             if (cancel === "1") {
-                await users.updateOne({ id }, { $set: { adventure: { type: null, start: null } } });
-                return res.status(200).json({ status: 200, message: "Adventure cancelled" });
+                const result = await users.findOneAndUpdate({ id }, { $set: { adventure: { type: null, start: null, character: null } } });
+                const cancelledChar = result.value?.adventure?.character ?? null;
+                return res.status(200).json({ status: 200, message: "Adventure cancelled", data: { status: isOnAdv, completed: false, character: cancelledChar } });
             }
             if (profile.adventure.start === null) {
                 // Start adventure
-                await users.updateOne({ id }, { $set: { adventure: { type, start: data.start } } });
-                res.status(200).json({ status: 200, message: "Adventure started", data: { status: false, completed: false } });
+                await users.updateOne({ id }, { $set: { adventure: { type, start: data.start, character: char.name } } });
+                res.status(200).json({ status: 200, message: "Adventure started", data: { status: false, completed: false, character: char.name } });
             } else {
                 const timeElasped = data.start.getTime() - profile.adventure.start.getTime();
                 data = { type: profile.adventure.type, start: profile.adventure.start };
                 if (timeElasped > THRESHOLD) {
+                    let reward, user, _, result;
                     switch (profile.adventure.type) {
                     case "commission":
-                        await users.updateOne({ id }, { $set: { adventure: { type: null, start: null } }, $inc: { coins: REWARD * char.level } });
+                        user = (await users.findOneAndUpdate({ id }, { $set: { adventure: { type: null, start: null, character: char.name } }, $inc: { coins: REWARD * char.level } })).value;
+                        if (user === null) return res.status(500);
+                        reward = { coins: user.coins, reward: REWARD * char.level };
                         break;
                     case "domain":
                         const artifact = utils.generateArtifact();
-                        await client.db(id).collection<Artifact>("artifacts").insertOne(artifact);
-                        await users.updateOne({ id }, { $set: { adventure: { type: null, start: null } } });
+                        [_, result] = await Promise.all([
+                            client.db(id).collection<Artifact>("artifacts").insertOne(artifact),
+                            users.findOneAndUpdate({ id }, { $set: { adventure: { type: null, start: null, character: char.name } } }),
+                        ]);
+                        user = result.value;
+                        if (user === null) return res.status(500);
+                        const mainStat = utils.getMainStatValue(artifact);
+                        const artifactInfo = { ...artifact, value: mainStat };
+                        reward = { artifact: artifactInfo };
+                        break;
                     case "expedition":
-                        char.level < 90 && await client.db(id).collection<Character>("characters").updateOne({ name: character }, { $inc: { level: 1 } });
-                        await users.updateOne({ id }, { $set: { adventure: { type: null, start: null } } });
+                        [_, result] = await Promise.all([
+                            char.level < 90 && await client.db(id).collection<Character>("characters").findOneAndUpdate({ name: character }, { $inc: { level: 1 } }),
+                            users.findOneAndUpdate({ id }, { $set: { adventure: { type: null, start: null, character: char.name } } }),
+                        ]);
+                        user = result.value;
+                        if (user === null) return res.status(500);
+                        reward = { old_level: char.level, level_gained: 1 };
                     }
-                    res.status(200).json({ status: 200, message: "Adventure completed", data: { status: true, completed: true, } });
+                    res.status(200).json({ status: 200, message: "Adventure completed", data: { status: true, completed: true, reward } });
                 } else {
-                    res.status(200).json({ status: 200, message: "Adventure ongoing", data: { status: true, completed: false, } });
+                    res.status(200).json({ status: 200, message: "Adventure ongoing", data: { status: true, completed: false, timeElasped, timeRequired: THRESHOLD } });
                 }
             }
         } 
@@ -86,7 +103,6 @@ export default async function handler(
                 // Adventure in progress
                 const timeElasped = new Date().getTime() - profile.adventure.start.getTime();
                 if (timeElasped > THRESHOLD) {
-                    // await users.updateOne({ id }, { $set: { adventure: { type: null, start: null } }, $inc: { coins: 1000 } });
                     res.status(200).json({ status: 200, message: "Adventure completed", data: { status: true, completed: true, ...profile.adventure } });
                 } else {
                     res.status(200).json({ status: 200, message: "Adventure ongoing", data: { status: true, completed: false, ...profile.adventure } });
