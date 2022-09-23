@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { verifyDb } from "../../../../util/verifyDb";
 import { connectToDB } from "../../../../util/mongodb";
 import validatePaginateQuery from "../../../../util/validatePaginateQuery";
+import { ObjectId } from "mongodb";
 
 interface ResponseData {
     status: number
@@ -30,7 +31,7 @@ export default async function handler(
             const find = {} as any;
             if (typeof name === "string") find.name = name;
             if (typeof rarity === "string") find.rarity = parseInt(rarity);
-            if (typeof weaponId === "string") find.id = parseInt(weaponId);
+            if (typeof weaponId === "string") find._id = new ObjectId(weaponId);
             if (typeof type === "string") find.type = type;
             weapons = await collection
                 .find(find)

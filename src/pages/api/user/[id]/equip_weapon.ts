@@ -1,3 +1,4 @@
+import { ObjectId } from "mongodb";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { utils } from "../../../../util";
 
@@ -17,7 +18,7 @@ export default async function handler(
         if(utils.validateToken(req, res) === false) return;
         const id = req.query.id as string;
         const { character, weaponId } = req.body as {[key: string]: string};
-        const weapon = parseInt(weaponId);
+        const weapon = new ObjectId(weaponId);
 
         const { client } = await utils.connectToDB();
         const userExists = await utils.verifyDb(id);
@@ -28,11 +29,11 @@ export default async function handler(
         const weapCol = client.db(id).collection<Weapon>("weapons");
         const [char, weap] = await Promise.all([
             charCol.findOne({ name: character }),
-            weapCol.findOne({ id: weapon }),
+            weapCol.findOne({ _id: weapon }),
         ]);
         if (char === null) return res.status(404).json({ status: 404, message: "Character not found" });
         if (weap === null) return res.status(404).json({ status: 404, message: "Weapon not found" });
-        if (char.weapon === weap.id) return res.status(400).json({ status: 400, message: "Character is already equipping that weapon" });
+        if (char.weapon === weap._id) return res.status(400).json({ status: 400, message: "Character is already equipping that weapon" });
         if (char.type !== weap.type) return res.status(400).json({ status: 400, message: "Character cannot equip that weapon type" });
 
         await Promise.all([

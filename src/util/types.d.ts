@@ -29,6 +29,7 @@ interface UserProfile {
     adventure: {
         type: null | AdventureType
         start: null | Date
+        character: null | string
     }
 }
 
@@ -38,7 +39,7 @@ interface Character {
     name: string
     rarity: number
     constellations: number
-    weapon: number | null
+    weapon: ObjectId | null
     flower: ObjectId | null
     feather: ObjectId | null
     sands: ObjectId | null
@@ -52,7 +53,6 @@ interface Character {
 
 interface Weapon {
     _id: ObjectId
-    id: number
     name: string
     level: number
     refinement: number
