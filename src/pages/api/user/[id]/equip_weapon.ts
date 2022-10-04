@@ -43,7 +43,7 @@ export default async function handler(
 
         await Promise.all([
             charCol.updateOne({ name: character }, { $set: { weapon } }),
-            weapCol.updateOne({ id: weapon }, { $set: { equipped: character } }),
+            weapCol.updateOne({ _id: weapon }, { $set: { equipped: character } }),
         ]);
 
         const newCharInfo = await charCol.findOne({ name: character });

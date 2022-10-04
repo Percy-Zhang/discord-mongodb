@@ -4,6 +4,7 @@ import { connectToDB } from "./mongodb";
 type ElementT = "ANEMO" | "GEO" | "ELECTRO" | "DENDRO" | "HYDRO" | "PYRO" | "CRYO" | "PHYS"
 type SubstatsObject = {[key in SubstatType]: number | undefined}
 
+// IMPORTANT - Scalings are way off; fix later
 export async function getCharStats(id: string, name: string) {
     const { client } = await connectToDB();
     const weapCol = client.db(id).collection<Weapon>("weapons");
@@ -15,7 +16,7 @@ export async function getCharStats(id: string, name: string) {
     if (character === null) return {};
 
     const [weapon, flower, feather, sands, goblet, circlet] = await Promise.all([
-        weapCol.findOne({ id: character.weapon ?? undefined }),
+        weapCol.findOne({ _id: character.weapon ?? undefined }),
         artiCol.findOne({ _id: character.flower ?? undefined }),
         artiCol.findOne({ _id: character.feather ?? undefined }),
         artiCol.findOne({ _id: character.sands ?? undefined }),
@@ -31,7 +32,7 @@ export async function getCharStats(id: string, name: string) {
     if (charInfo === null) return {};
 
     const artifactStats = getArtifactTotalStats([flower, feather, sands, goblet, circlet]);
-    const weaponStats = weapInfo === null || weapon === null 
+    const weaponStats = weapInfo === null || weapon === null || character.weapon === null
         ? {} as SubstatsObject
         : { [weapInfo.substat]: weapInfo.substat_value * weapon.level / 19.6 } as SubstatsObject;
     const characterStats = charInfo === null || character === null
@@ -106,6 +107,10 @@ export async function getCharStats(id: string, name: string) {
     const TOTAL_CD = 50 + charCd + weapCd + artiCd;
     const TOTAL_HB = charHb + weapHb + artiHB;
 
+    console.log("WEAPON", weapon);
+    console.log("WEAPINFO", weapInfo);
+    console.log("char", character.weapon);
+    console.log("TEST2", await weapCol.findOne({ _id: character.weapon ?? undefined }));
     return {
         name: character.name,
         level: character.level,
@@ -115,12 +120,12 @@ export async function getCharStats(id: string, name: string) {
         element: charInfo.element,
         height: charInfo.height,
         title: charInfo.title,
-        weapon: weapon === null ? undefined : { ...weapon, ...weapInfo, main: weapBaseAtk, substat_value: Object.values(weaponStats)[0] },
-        flower: flower === null ? undefined : { ...flower, value: getMainStatValue(flower) },
-        feather: feather === null ? undefined : { ...feather, value: getMainStatValue(feather) },
-        sands: sands === null ? undefined : { ...sands, value: getMainStatValue(sands) },
-        goblet: goblet === null ? undefined : { ...goblet, value: getMainStatValue(goblet) },
-        circlet: circlet === null ? undefined : { ...circlet, value: getMainStatValue(circlet) },
+        weapon: character.weapon === null ? undefined : { ...weapon, ...weapInfo, main: weapBaseAtk, substat_value: Object.values(weaponStats)[0] },
+        flower: character.flower === null ||flower === null ? undefined : { ...flower, value: getMainStatValue(flower) },
+        feather: character.feather === null ||feather === null ? undefined : { ...feather, value: getMainStatValue(feather) },
+        sands: character.sands === null ||sands === null ? undefined : { ...sands, value: getMainStatValue(sands) },
+        goblet: character.goblet === null ||goblet === null ? undefined : { ...goblet, value: getMainStatValue(goblet) },
+        circlet: character.circlet === null ||circlet === null ? undefined : { ...circlet, value: getMainStatValue(circlet) },
         BASE_ATK: TOTAL_BASE_ATK,
         PCT_ATK: TOTAL_PCT_ATK,
         FLAT_ATK: artiPctAtk,
